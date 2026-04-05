@@ -20,8 +20,14 @@ export default async function handler(req, res) {
         stream: false
       })
     });
-    const data = await response.json();
-    res.status(200).json(data);
+   const data = await response.json();
+if (!response.ok) {
+  return res.status(200).json({ 
+    error: `DeepSeek错误：${data.error?.message || response.status}` 
+  });
+}
+res.status(200).json(data);
+
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
