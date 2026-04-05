@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesen — 外刊精读</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Source+Serif+4:ital,opsz,wght@0,8..60,300;0,8..60,400;1,8..60,300&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+<style>
+:root {
+  --ink: #1a1612; --paper: #f5f0e8; --paper-dark: #ede7d9;
+  --accent: #8b3a2a; --gold: #b8982a; --muted: #7a7060;
+  --panel: #fff9f0; --border: #d4c9b5; --highlight: #fff3c4;
+  --green: #2e7d32; --red: #c62828;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--paper); color: var(--ink); font-family: 'Source Serif 4', Georgia, serif; font-size: 17px; line-height: 1.8; min-height: 100vh; }
+header { border-bottom: 2px solid var(--ink); padding: 14px 32px; display: flex; align-items: center; gap: 16px; background: var(--paper); position: sticky; top: 0; z-index: 100; }
+.logo { font-family: 'Playfair Display', serif; font-size: 24px; font-weight: 600; }
+.logo-sub { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); letter-spacing: 3px; text-transform: uppercase; }
+.header-right { margin-left: auto; display: flex; gap: 10px; align-items: center; }
+.btn { font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; padding: 8px 16px; border: 1.5px solid var(--ink); background: transparent; color: var(--ink); cursor: pointer; transition: all 0.15s; border-radius: 2px; }
+.btn:hover { background: var(--ink); color: var(--paper); }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-primary { background: var(--accent); border-color: var(--accent); color: white; }
+.btn-primary:hover { background: #6e2e1f; }
+.btn-ghost { border-color: var(--border); color: var(--muted); }
+.btn-ghost:hover { border-color: var(--ink); color: var(--ink); background: transparent; }
+.btn-sm { padding: 5px 10px; font-size: 10px; }
+#importScreen { max-width: 700px; margin: 60px auto; padding: 0 24px; }
+.import-title { font-family: 'Playfair Display', serif; font-size: 32px; margin-bottom: 8px; }
+.import-subtitle { color: var(--muted); font-size: 15px; margin-bottom: 36px; font-style: italic; }
+.drop-zone { border: 2px dashed var(--border); border-radius: 8px; padding: 36px 24px; text-align: center; cursor: pointer; transition: all 0.2s; background: var(--panel); margin-bottom: 8px; }
+.drop-zone:hover, .drop-zone.over { border-color: var(--accent); background: rgba(139,58,42,0.04); }
+.drop-icon { font-size: 32px; margin-bottom: 10px; color: var(--muted); }
+.drop-main { font-family: 'Playfair Display', serif; font-size: 17px; margin-bottom: 4px; }
+.drop-sub { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); letter-spacing: 1px; }
+.file-status { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--accent); min-height: 18px; margin: 6px 0; }
+.divider { text-align: center; position: relative; margin: 18px 0 14px; color: var(--muted); font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; }
+.divider::before, .divider::after { content: ''; position: absolute; top: 50%; width: 44%; height: 1px; background: var(--border); }
+.divider::before { left: 0; } .divider::after { right: 0; }
+textarea { width: 100%; min-height: 160px; border: 1.5px dashed var(--border); background: var(--panel); border-radius: 6px; padding: 16px; font-family: 'Source Serif 4', serif; font-size: 15px; color: var(--ink); resize: vertical; outline: none; transition: border-color 0.2s; }
+textarea:focus { border-color: var(--accent); border-style: solid; }
+textarea::placeholder { color: var(--muted); font-style: italic; }
+.import-actions { display: flex; gap: 10px; margin-top: 12px; align-items: center; flex-wrap: wrap; }
+.clean-hint { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); margin-top: 8px; display: block; }
+#readerScreen { display: none; max-width: 780px; margin: 0 auto; padding: 40px 24px 120px; }
+.section-label { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 3px; text-transform: uppercase; color: var(--muted); margin-bottom: 20px; display: flex; align-items: center; gap: 12px; }
+.section-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+.para-block { margin-bottom: 2.2em; }
+.para-text { font-size: 18px; line-height: 1.9; }
+.word { cursor: pointer; border-radius: 2px; transition: background 0.1s; position: relative; }
+.word:hover { background: var(--highlight); }
+.word.active { background: var(--highlight); outline: 1.5px solid var(--gold); border-radius: 2px; }
+.sent { cursor: pointer; border-radius: 3px; transition: background 0.1s; }
+.sent:hover { background: rgba(184,152,42,0.08); }
+.sent.active { background: rgba(184,152,42,0.15); }
+.word-card { background: var(--paper-dark); border: 1px solid var(--border); border-radius: 6px; padding: 14px 16px; margin: 8px 0; font-size: 14px; line-height: 1.7; display: none; }
+.word-card.open { display: block; }
+.wc-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; }
+.wc-word { font-family: 'Playfair Display', serif; font-size: 20px; font-weight: 600; }
+.wc-phone { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); }
+.wc-pos { font-family: 'DM Mono', monospace; font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--accent); margin: 6px 0 3px; }
+.wc-def { padding-left: 10px; border-left: 2px solid var(--border); margin-bottom: 4px; font-size: 13.5px; }
+.wc-ex { font-style: italic; color: var(--muted); font-size: 13px; padding-left: 10px; }
+.wc-ai { margin-top: 10px; padding: 10px; background: var(--panel); border-radius: 4px; font-size: 13px; line-height: 1.65; }
+.wc-ai-label { font-family: 'DM Mono', monospace; font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--gold); margin-bottom: 5px; }
+.wc-close { float: right; background: none; border: none; color: var(--muted); cursor: pointer; font-size: 16px; line-height: 1; padding: 0; }
+.sent-analysis { background: var(--panel); border: 1px solid var(--border); border-left: 3px solid var(--gold); border-radius: 0 6px 6px 0; padding: 16px 18px; margin: 8px 0; display: none; font-size: 14px; line-height: 1.75; }
+.sent-analysis.open { display: block; }
+.sa-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.sa-label { font-family: 'DM Mono', monospace; font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--gold); }
+.sa-close { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 16px; }
+.sa-section { margin-bottom: 12px; }
+.sa-section-title { font-family: 'DM Mono', monospace; font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; }
+.sa-content { white-space: pre-line; font-size: 13.5px; line-height: 1.8; }
+.sa-loading { display: flex; align-items: center; gap: 8px; color: var(--muted); font-family: 'DM Mono', monospace; font-size: 11px; }
+.sa-loading::before { content: ''; width: 12px; height: 12px; border: 2px solid var(--border); border-top-color: var(--gold); border-radius: 50%; animation: spin 0.8s linear infinite; flex-shrink: 0; }
+#toolbar { position: fixed; bottom: 0; left: 0; right: 0; background: var(--paper); border-top: 1px solid var(--border); padding: 12px 24px; display: none; gap: 10px; align-items: center; justify-content: center; flex-wrap: wrap; z-index: 50; }
+#toolbar.visible { display: flex; }
+.overlay { position: fixed; inset: 0; background: rgba(26,22,18,0.6); z-index: 200; display: none; align-items: flex-start; justify-content: center; padding: 40px 16px; overflow-y: auto; }
+.overlay.open { display: flex; }
+.modal { background: var(--paper); border-radius: 8px; width: 100%; max-width: 680px; padding: 32px; position: relative; }
+.modal-close { position: absolute; top: 16px; right: 20px; background: none; border: none; font-size: 22px; color: var(--muted); cursor: pointer; }
+.modal-title { font-family: 'Playfair Display', serif; font-size: 24px; margin-bottom: 6px; }
+.modal-sub { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 24px; }
+.modal-content { font-size: 14.5px; line-height: 1.85; white-space: pre-line; }
+.quiz-item { margin-bottom: 22px; padding-bottom: 20px; border-bottom: 1px solid var(--border); }
+.quiz-item:last-child { border-bottom: none; }
+.quiz-num { font-family: 'DM Mono', monospace; font-size: 9px; color: var(--accent); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 5px; }
+.quiz-q { font-size: 14.5px; line-height: 1.65; margin-bottom: 10px; }
+.quiz-opts label { display: block; padding: 7px 10px; margin: 4px 0; border: 1px solid var(--border); border-radius: 3px; font-size: 13.5px; cursor: pointer; transition: all 0.15s; background: white; }
+.quiz-opts label:hover { border-color: var(--accent); }
+.quiz-opts input { display: none; }
+.quiz-opts label.correct { background: #e8f5e9; border-color: #4caf50; color: var(--green); }
+.quiz-opts label.wrong { background: #fce4ec; border-color: #e91e63; color: var(--red); }
+.quiz-open-ta { width: 100%; border: 1px solid var(--border); border-radius: 3px; padding: 8px 10px; font-family: 'Source Serif 4', serif; font-size: 14px; background: white; outline: none; margin-top: 6px; resize: vertical; min-height: 70px; }
+.quiz-open-ta:focus { border-color: var(--accent); }
+.quiz-fb { font-size: 13px; margin-top: 8px; padding: 8px; border-radius: 3px; display: none; line-height: 1.65; }
+.cloze-input { border: none; border-bottom: 1.5px solid var(--ink); background: transparent; font-family: 'Source Serif 4', serif; font-size: 14.5px; width: 90px; outline: none; text-align: center; margin: 0 2px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font-family: 'DM Mono', monospace; font-size: 12px; }
+.loading::before { content: ''; width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; flex-shrink: 0; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Lesen</div>
+  <div class="logo-sub">外刊精读</div>
+  <div class="header-right" id="headerRight">
+    <button class="btn btn-ghost btn-sm" id="summaryBtn" style="display:none" onclick="openSummary()">Summary</button>
+    <button class="btn btn-ghost btn-sm" id="quizBtn" style="display:none" onclick="openQuiz()">题库</button>
+    <button class="btn btn-ghost btn-sm" id="clearBtn" style="display:none" onclick="clearAll()">清空</button>
+  </div>
+</header>
+
+<div id="importScreen">
+  <div class="import-title">Lesen</div>
+  <div class="import-subtitle">导入外刊，开始精读</div>
+  <div class="drop-zone" id="dropZone">
+    <div class="drop-icon">⊕</div>
+    <div class="drop-main">拖入 PDF 或 Word 文件</div>
+    <div class="drop-sub">点击选择 · .pdf .docx .doc</div>
+    <input type="file" id="fileInput" accept=".pdf,.doc,.docx" style="display:none">
+  </div>
+  <div class="file-status" id="fileStatus"></div>
+  <div class="divider"><span>或者粘贴文字</span></div>
+  <textarea id="pasteArea" placeholder="粘贴外刊文章……英文、德文均可"></textarea>
+  <div class="import-actions">
+    <button class="btn btn-primary" onclick="startReading()">开始阅读</button>
+    <button class="btn btn-ghost" onclick="cleanAndPaste()">✦ 清理文字</button>
+  </div>
+  <span class="clean-hint">PDF 导入后若有乱空格，先点「清理文字」再开始阅读</span>
+</div>
+
+<div id="readerScreen">
+  <div class="section-label">文章</div>
+  <div id="articleBody"></div>
+</div>
+
+<div id="toolbar">
+  <span id="toolbarHint" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:1px"></span>
+</div>
+
+<div class="overlay" id="summaryOverlay" onclick="closeModal(event,'summaryOverlay')">
+  <div class="modal">
+    <button class="modal-close" onclick="document.getElementById('summaryOverlay').classList.remove('open')">×</button>
+    <div class="modal-title">Summary</div>
+    <div class="modal-sub">文章摘要与分析</div>
+    <div id="summaryContent"><div class="loading">生成中…</div></div>
+  </div>
+</div>
+
+<div class="overlay" id="quizOverlay" onclick="closeModal(event,'quizOverlay')">
+  <div class="modal">
+    <button class="modal-close" onclick="document.getElementById('quizOverlay').classList.remove('open')">×</button>
+    <div class="modal-title">题库</div>
+    <div class="modal-sub">复盘练习</div>
+    <div style="display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap" id="quizTypeBar">
+      <button class="btn btn-sm btn-primary" onclick="generateQuiz('comprehension',event)">理解题</button>
+      <button class="btn btn-sm btn-ghost" onclick="generateQuiz('cloze',event)">完形填空</button>
+      <button class="btn btn-sm btn-ghost" onclick="generateQuiz('translation',event)">翻译/回译</button>
+      <button class="btn btn-sm btn-ghost" onclick="generateQuiz('truefalse',event)">判断理解</button>
+    </div>
+    <div id="quizContent"><div style="color:var(--muted);font-style:italic;font-size:14px">选择题型开始练习</div></div>
+  </div>
+</div>
+
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+let articleText = '';
+let activeWordCard = null;
+let activeSentAnalysis = null;
+
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('over'));
+dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('over'); if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); });
+fileInput.addEventListener('change', () => { if (fileInput.files[0]) handleFile(fileInput.files[0]); });
+
+async function handleFile(file) {
+  const name = file.name.toLowerCase();
+  setStatus('正在读取 ' + file.name + '…');
+  try {
+    let raw = '';
+    if (name.endsWith('.pdf')) raw = await extractPDF(file);
+    else if (name.endsWith('.docx') || name.endsWith('.doc')) raw = await extractWord(file);
+    else { setStatus('不支持的格式'); return; }
+    if (!raw.trim()) { setStatus('提取失败，可能是扫描版或加密 PDF'); return; }
+    document.getElementById('pasteArea').value = raw;
+    setStatus('✓ 已导入：' + file.name + '（建议先点「清理文字」）');
+  } catch(e) { setStatus('读取失败：' + e.message); }
+}
+function setStatus(msg) { document.getElementById('fileStatus').textContent = msg; }
+
+async function extractPDF(file) {
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+  let pages = [];
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    let lastY = null, line = '', lines = [];
+    for (const item of content.items) {
+      const y = item.transform[5];
+      if (lastY !== null && Math.abs(y - lastY) > 4) { lines.push(line); line = ''; }
+      line += item.str;
+      lastY = y;
+    }
+    if (line) lines.push(line);
+    pages.push(lines.join('\n'));
+  }
+  return pages.join('\n\n');
+}
+
+async function extractWord(file) {
+  const buf = await file.arrayBuffer();
+  const result = await mammoth.extractRawText({ arrayBuffer: buf });
+  return result.value;
+}
+
+function cleanText(raw) {
+  let t = raw.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  t = t.replace(/(\w)-\n(\w)/g, '$1$2');
+  t = t.replace(/([^.!?\n])\n([a-z\(])/g, '$1 $2');
+  t = t.replace(/([.!?])\n([A-Z"])/g, '$1\n\n$2');
+  t = t.replace(/[ \t]+/g, ' ');
+  t = t.split('\n').map(l => l.trim()).join('\n');
+  t = t.replace(/\n{3,}/g, '\n\n');
+  return t.trim();
+}
+function cleanAndPaste() {
+  const raw = document.getElementById('pasteArea').value;
+  if (!raw.trim()) return;
+  document.getElementById('pasteArea').value = cleanText(raw);
+  setStatus('✓ 文字已清理');
+}
+
+function startReading() {
+  const text = document.getElementById('pasteArea').value.trim();
+  if (!text) return;
+  articleText = text;
+  renderArticle(text);
+  document.getElementById('importScreen').style.display = 'none';
+  document.getElementById('readerScreen').style.display = 'block';
+  document.getElementById('toolbar').classList.add('visible');
+  document.getElementById('summaryBtn').style.display = '';
+  document.getElementById('quizBtn').style.display = '';
+  document.getElementById('clearBtn').style.display = '';
+  document.getElementById('toolbarHint').textContent = '点单词查词 · 点句子展开分析';
+}
+
+function clearAll() {
+  articleText = '';
+  document.getElementById('importScreen').style.display = 'block';
+  document.getElementById('readerScreen').style.display = 'none';
+  document.getElementById('toolbar').classList.remove('visible');
+  document.getElementById('pasteArea').value = '';
+  ['summaryBtn','quizBtn','clearBtn'].forEach(id => document.getElementById(id).style.display = 'none');
+  setStatus('');
+}
+
+function renderArticle(text) {
+  const body = document.getElementById('articleBody');
+  const paras = text.split(/\n{2,}/).filter(p => p.trim());
+  body.innerHTML = paras.map((para, pi) => {
+    const sents = para.match(/[^.!?]+[.!?]+\s*/g) || [para];
+    let html = '';
+    sents.forEach((sent, si) => {
+      const sid = `s-${pi}-${si}`;
+      const tokens = sent.split(/(\s+)/);
+      const words = tokens.map(tok => {
+        if (/^\s+$/.test(tok)) return tok;
+        const clean = tok.replace(/[^a-zA-ZäöüÄÖÜß\-]/g, '');
+        if (!clean || clean.length < 2) return tok;
+        const wid = `w-${pi}-${si}-${clean}`;
+        return `<span class="word" id="${wid}" data-word="${clean}" onclick="toggleWord(event,'${wid}','${clean}')">${tok}</span>`;
+      }).join('');
+      html += `<span class="sent" id="${sid}" onclick="toggleSent(event,'${sid}')">${words}</span>`;
+    });
+    return `<div class="para-block"><div class="para-text">${html}</div><div class="word-card" id="wc-${pi}"></div><div class="sent-analysis" id="sa-${pi}"></div></div>`;
+  }).join('');
+}
+
+async function toggleWord(e, wid, word) {
+  e.stopPropagation();
+  const el = document.getElementById(wid);
+  const pi = wid.split('-')[1];
+  const card = document.getElementById('wc-' + pi);
+  if (activeWordCard && activeWordCard.wid === wid) {
+    el.classList.remove('active'); card.classList.remove('open'); activeWordCard = null; return;
+  }
+  if (activeWordCard) {
+    const prev = document.getElementById(activeWordCard.wid);
+    if (prev) prev.classList.remove('active');
+    document.querySelectorAll('.word-card').forEach(c => c.classList.remove('open'));
+  }
+  el.classList.add('active');
+  card.innerHTML = `<button class="wc-close" onclick="closeWordCard('${wid}','${pi}')">×</button><div class="loading">查询 ${word}…</div>`;
+  card.classList.add('open');
+  activeWordCard = { wid, pi };
+  let dictHtml = '';
+  try {
+    const res = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word.toLowerCase())}`);
+    if (res.ok) {
+      const data = await res.json();
+      const entry = data[0];
+      const phone = entry.phonetics?.find(p => p.text)?.text || '';
+      const meanings = (entry.meanings||[]).slice(0,2).map(m => {
+        const defs = m.definitions.slice(0,2).map(d =>
+          `<div class="wc-def">${d.definition}</div>${d.example?`<div class="wc-ex">"${d.example}"</div>`:''}`
+        ).join('');
+        return `<div class="wc-pos">${m.partOfSpeech}</div>${defs}`;
+      }).join('');
+      dictHtml = `<div class="wc-head"><span class="wc-word">${entry.word}</span>${phone?`<span class="wc-phone">${phone}</span>`:''}</div>${meanings}`;
+    }
+  } catch {}
+  card.innerHTML = `<button class="wc-close" onclick="closeWordCard('${wid}','${pi}')">×</button>${dictHtml||`<div class="wc-head"><span class="wc-word">${word}</span></div>`}<div class="wc-ai" id="wcai-${pi}"><div class="sa-loading">AI 语境注释中…</div></div>`;
+  try {
+    const prompt = `用中文简洁解释"${word}"在外刊语境中的含义和使用场景，给1个记忆技巧或词源线索。${articleText?`语境：${articleText.slice(0,300)}`:''}80字以内，纯文字。`;
+    const note = await callAI([{role:'user',content:prompt}], 150);
+    const aiEl = document.getElementById('wcai-'+pi);
+    if (aiEl) aiEl.innerHTML = `<div class="wc-ai-label">AI 语境注释</div>${note}`;
+  } catch {
+    const aiEl = document.getElementById('wcai-'+pi);
+    if (aiEl) aiEl.innerHTML = '';
+  }
+}
+
+function closeWordCard(wid, pi) {
+  const el = document.getElementById(wid); if (el) el.classList.remove('active');
+  const card = document.getElementById('wc-'+pi); if (card) card.classList.remove('open');
+  activeWordCard = null;
+}
+
+async function toggleSent(e, sid) {
+  if (e.target.classList.contains('word')) return;
+  const el = document.getElementById(sid);
+  const pi = sid.split('-')[1];
+  const box = document.getElementById('sa-'+pi);
+  const sentText = el.textContent.trim();
+  if (activeSentAnalysis && activeSentAnalysis.sid === sid) {
+    el.classList.remove('active'); box.classList.remove('open'); activeSentAnalysis = null; return;
+  }
+  if (activeSentAnalysis) {
+    const prev = document.getElementById(activeSentAnalysis.sid);
+    if (prev) prev.classList.remove('active');
+    document.querySelectorAll('.sent-analysis').forEach(b => b.classList.remove('open'));
+  }
+  el.classList.add('active');
+  box.innerHTML = `<div class="sa-head"><span class="sa-label">语句分析</span><button class="sa-close" onclick="closeSentAnalysis('${sid}','${pi}')">×</button></div><div class="sa-loading">分析中…</div>`;
+  box.classList.add('open');
+  activeSentAnalysis = { sid, pi };
+  const prompt = `你是专业外刊语言教学助手，分析以下句子，用中文回答：\n\n"${sentText}"\n\n请按以下四部分分析，每部分标题用【】：\n\n【句子结构】\n主谓宾/从句/修饰语，给出句子框架（用→箭头表示层级），列出1个类似句式。\n\n【关键词汇与搭配】\n列出2-3个词/词组，每个包含：中文释义、1个例句、同义词或易混表达。\n\n【中文翻译】\n信达雅的译文。\n\n【写作积累】\n1个可套用的句式结构（附例句）。\n\n300字以内，纯文字。`;
+  try {
+    const result = await callAI([{role:'user',content:prompt}], 700);
+    const sections = parseAnalysis(result);
+    box.innerHTML = `<div class="sa-head"><span class="sa-label">语句分析</span><button class="sa-close" onclick="closeSentAnalysis('${sid}','${pi}')">×</button></div>${sections.map(s=>`<div class="sa-section"><div class="sa-section-title">${s.title}</div><div class="sa-content">${s.content}</div></div>`).join('')}`;
+  } catch(e) {
+    box.innerHTML = `<div class="sa-head"><span class="sa-label">分析失败</span><button class="sa-close" onclick="closeSentAnalysis('${sid}','${pi}')">×</button></div><div style="font-size:13px;color:var(--muted)">${e.message}</div>`;
+  }
+}
+
+function closeSentAnalysis(sid, pi) {
+  const el = document.getElementById(sid); if (el) el.classList.remove('active');
+  const box = document.getElementById('sa-'+pi); if (box) box.classList.remove('open');
+  activeSentAnalysis = null;
+}
+
+function parseAnalysis(text) {
+  const sections = [];
+  const patterns = [/【句子结构】([\s\S]*?)(?=【|$)/, /【关键词汇与搭配】([\s\S]*?)(?=【|$)/, /【中文翻译】([\s\S]*?)(?=【|$)/, /【写作积累】([\s\S]*?)(?=【|$)/];
+  const titles = ['句子结构','关键词汇与搭配','中文翻译','写作积累'];
+  patterns.forEach((p,i) => { const m = text.match(p); if (m) sections.push({title:titles[i],content:m[1].trim()}); });
+  if (!sections.length) sections.push({title:'分析',content:text.trim()});
+  return sections;
+}
+
+async function openSummary() {
+  document.getElementById('summaryOverlay').classList.add('open');
+  const el = document.getElementById('summaryContent');
+  el.innerHTML = '<div class="loading">生成中…</div>';
+  const prompt = `请对以下外刊文章进行摘要分析，用中文：\n\n${articleText.slice(0,3000)}\n\n一、核心论点（1-2句）\n二、主要内容要点（3-5条）\n三、英文文章框架结构（英文列出 Intro / Main Points / Conclusion 逻辑脉络）\n四、值得学习的词汇（5个，附中文释义）\n五、文章立场与语气（1句）\n\n400字以内，纯文字。`;
+  try {
+    const result = await callAI([{role:'user',content:prompt}], 900);
+    el.innerHTML = `<div class="modal-content">${result}</div>`;
+  } catch(e) { el.innerHTML = `<div style="color:var(--muted)">${e.message}</div>`; }
+}
+
+function openQuiz() { document.getElementById('quizOverlay').classList.add('open'); }
+
+async function generateQuiz(type, e) {
+  if (e) { document.querySelectorAll('#quizTypeBar .btn').forEach(b=>{b.classList.remove('btn-primary');b.classList.add('btn-ghost');}); e.target.classList.add('btn-primary'); e.target.classList.remove('btn-ghost'); }
+  const el = document.getElementById('quizContent');
+  el.innerHTML = '<div class="loading">生成题库中…</div>';
+  const prompts = {
+    comprehension: `根据以下文章生成题库，只返回JSON不要其他文字：\n${articleText.slice(0,2000)}\n\n格式：{"questions":[{"type":"mcq","question":"题目","options":["A.选项","B.选项","C.选项","D.选项"],"answer":"A","explanation":"解析"}]}\n生成5道选择题，题目和解析用中文。`,
+    cloze: `根据以下文章生成完形填空，只返回JSON：\n${articleText.slice(0,1500)}\n\n格式：{"questions":[{"type":"cloze","sentence":"The economy ___ significantly.","blank":"grew","options":["grew","fell","stayed","rose"],"explanation":"解析"}]}\n生成5道完形填空。`,
+    translation: `根据以下文章生成翻译练习，只返回JSON：\n${articleText.slice(0,1500)}\n\n格式：{"questions":[{"type":"en2zh","sentence":"英文句子","answer":"中文参考译文"},{"type":"zh2en","sentence":"中文句子","answer":"英文参考译文"}]}\n生成3道英译中+2道中译英。`,
+    truefalse: `根据以下文章生成判断理解题，只返回JSON：\n${articleText.slice(0,2000)}\n\n格式：{"questions":[{"type":"tf","statement":"陈述句","answer":true,"explanation":"解析"}]}\n生成6道判断题（true/false各3道），用中文。`
+  };
+  try {
+    let raw = await callAI([{role:'user',content:prompts[type]}], 1500);
+    raw = raw.replace(/```json|```/g,'').trim();
+    const m = raw.match(/\{[\s\S]*\}/);
+    if (!m) throw new Error('格式错误，请重试');
+    const parsed = JSON.parse(m[0]);
+    renderQuiz(parsed.questions, el);
+  } catch(e) { el.innerHTML = `<div style="color:var(--muted);font-size:14px">生成失败：${e.message}</div>`; }
+}
+
+function renderQuiz(questions, container) {
+  container.innerHTML = questions.map((q,qi) => {
+    if (q.type==='mcq') {
+      const opts = (q.options||[]).map((opt,oi)=>{const l=['A','B','C','D'][oi];return `<label id="opt-${qi}-${l}"><input type="radio" name="q${qi}" value="${l}" onchange="checkMcq(${qi},'${l}','${q.answer}',${JSON.stringify(q.explanation||'')})">${opt}</label>`;}).join('');
+      return `<div class="quiz-item"><div class="quiz-num">Q${qi+1} · 选择题</div><div class="quiz-q">${q.question}</div><div class="quiz-opts" id="opts-${qi}">${opts}</div><div class="quiz-fb" id="fb-${qi}"></div></div>`;
+    } else if (q.type==='tf') {
+      return `<div class="quiz-item"><div class="quiz-num">Q${qi+1} · 判断题</div><div class="quiz-q">${q.statement||q.question}</div><div style="display:flex;gap:8px;margin-top:8px"><button class="btn btn-sm" onclick="checkTF(this,true,${q.answer},${JSON.stringify(q.explanation||'')},${qi})">✓ 正确</button><button class="btn btn-sm" onclick="checkTF(this,false,${q.answer},${JSON.stringify(q.explanation||'')},${qi})">✗ 错误</button></div><div class="quiz-fb" id="fb-tf-${qi}"></div></div>`;
+    } else if (q.type==='cloze') {
+      const sent = (q.sentence||'').replace('___',`<input class="cloze-input" id="cloze-${qi}" placeholder="___">`);
+      return `<div class="quiz-item"><div class="quiz-num">Q${qi+1} · 完形填空</div><div class="quiz-q" style="line-height:2">${sent}</div><div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0">${(q.options||[]).map(o=>`<span style="background:var(--paper-dark);padding:3px 8px;border-radius:3px;font-size:13px;cursor:pointer" onclick="document.getElementById('cloze-${qi}').value='${o}'">${o}</span>`).join('')}</div><button class="btn btn-sm" onclick="checkCloze(${qi},'${q.blank}',${JSON.stringify(q.explanation||'')})">检查答案</button><div class="quiz-fb" id="fb-cloze-${qi}"></div></div>`;
+    } else if (q.type==='en2zh'||q.type==='zh2en') {
+      const label = q.type==='en2zh'?'英译中':'中译英';
+      return `<div class="quiz-item"><div class="quiz-num">Q${qi+1} · 翻译 · ${label}</div><div class="quiz-q">${q.sentence}</div><textarea class="quiz-open-ta" placeholder="写下你的译文…"></textarea><button class="btn btn-sm" style="margin-top:6px" onclick="showAns(this,${JSON.stringify(q.answer||'')})">查看参考</button><div class="quiz-fb"></div></div>`;
+    }
+    return '';
+  }).join('');
+}
+
+function checkMcq(qi,sel,correct,expl) {
+  document.querySelectorAll(`#opts-${qi} label`).forEach(l=>{const v=l.querySelector('input').value;if(v===correct)l.classList.add('correct');else if(v===sel&&sel!==correct)l.classList.add('wrong');l.querySelector('input').disabled=true;});
+  showFeedback(`fb-${qi}`,sel===correct,(sel===correct?'✓ 正确！':'✗ 正确答案是 '+correct+'。')+(expl?' '+expl:''));
+}
+function checkTF(btn,selected,correct,expl,qi) {
+  btn.closest('.quiz-item').querySelectorAll('button').forEach(b=>b.disabled=true);
+  const ok=selected===correct;
+  showFeedback('fb-tf-'+qi,ok,(ok?'✓ 正确！':'✗ 错误。')+' '+expl);
+}
+function checkCloze(qi,correct,expl) {
+  const val=document.getElementById('cloze-'+qi).value.trim().toLowerCase();
+  const ok=val===correct.toLowerCase();
+  showFeedback('fb-cloze-'+qi,ok,(ok?'✓ 正确！':'✗ 正确答案：'+correct+'。')+(expl?' '+expl:''));
+}
+function showAns(btn,answer) {
+  const fb=btn.nextElementSibling;
+  fb.style.cssText='display:block;background:var(--paper-dark);padding:10px;border-radius:3px;font-size:13.5px;line-height:1.7';
+  fb.innerHTML=`<span style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--gold)">参考译文</span><br>${answer}`;
+  btn.style.display='none';
+}
+function showFeedback(id,ok,msg) {
+  const el=document.getElementById(id); if(!el) return;
+  el.style.cssText=`display:block;padding:8px;border-radius:3px;font-size:13px;line-height:1.6;background:${ok?'#e8f5e9':'#fce4ec'};color:${ok?'#2e7d32':'#c62828'}`;
+  el.textContent=msg;
+}
+function closeModal(e,id) { if(e.target.id===id) document.getElementById(id).classList.remove('open'); }
+
+async function callAI(messages, maxTokens) {
+  const res = await fetch('/api/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ messages, max_tokens: maxTokens || 800 })
+  });
+  if (!res.ok) { const err = await res.json().catch(()=>({})); throw new Error(err.error||`HTTP ${res.status}`); }
+  const data = await res.json();
+  return data.choices?.[0]?.message?.content || '';
+}
+</script>
+</body>
+</html>
